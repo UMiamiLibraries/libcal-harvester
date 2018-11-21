@@ -9,5 +9,7 @@ Happy harvesting!!!
  *
  */
 
+$libcal_api_url = "";
 $libcal_client_id = "";
 $libcal_client_secret = "";
+$libcal_token_request_endpoint = $libcal_api_url . "/oauth/token";
