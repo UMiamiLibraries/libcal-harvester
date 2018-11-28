@@ -6,3 +6,7 @@ config\.php
 vendor/
 
 google_json_auth/
+
+*.csv
+
+*.csv#

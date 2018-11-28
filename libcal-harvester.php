@@ -10,6 +10,19 @@ include_once getcwd() . '/config.php';
 include_once getcwd() . '/LibCalHarvester.php';
 
 $harvester = new LibCalHarvester();
+$harvester->ingest();
 
-$harvester->harvest();
+foreach ($argv as $arg){
+	$arg = escapeshellcmd($arg);
 
+	switch ($arg) {
+		case "ingest":
+			$harvester = new LibCalHarvester();
+			$harvester->ingest();
+			break;
+		case "harvest":
+			$harvester = new LibCalHarvester();
+			$harvester->harvest();
+			break;
+	}
+}

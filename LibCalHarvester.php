@@ -61,7 +61,83 @@ class LibCalHarvester {
 		}
 	}
 
+	public function ingest() {
+		if ( $this->validAccessToken() ) {
+			$h = fopen("lc_rooms_20181126051044.csv", "r");
+
+			$data = fgetcsv($h, 1000, ",");
+
+			$new_data = [];
+
+			while (($data = fgetcsv($h, 1000, ",")) !== FALSE)
+			{
+				if ($this->checkValidRow($data)){
+					$row = new stdClass();
+					$row->booking_label = $data[4];
+
+					$libCaldateStr = $data[5];
+					$libCaldateStr = explode(",", $libCaldateStr);
+					$tempdateStr = $libCaldateStr[1] . ", " . $libCaldateStr[2];
+					$libCaldateStr = trim($tempdateStr);
+
+					$timeStr = $data[6];
+
+					$timeStr = explode(':', $timeStr);
+
+					$hours = (int) $timeStr[0];
+					$minutes = (int) $timeStr[1];
+
+					$dateTime = new DateTime();
+					$dateTime = $dateTime->createFromFormat('M d, Y', $libCaldateStr);
+
+					$dateTime = $dateTime->setTime($hours, $minutes);
+
+					$timeStamp = $dateTime->getTimestamp();
+
+					$row->booking_start = date('m/d/Y H:i', $timeStamp);
+					$row->booking_end = date('m/d/Y H:i', $timeStamp+$data[7]*60);
+
+					$dateStr = $data[8];
+					$dateStr = explode(' ', $dateStr);
+					$dateStr = $dateStr[1] . " " . $dateStr[2] . " " . $dateStr[3];
+					$dateTime = \DateTime::createFromFormat('M d, Y', $dateStr);
+					$row->booking_created = $dateTime->format('Y-m-d H:i:s');;
+					$row->room_name = $data[11];
+
+					$new_data[] = $row;
+
+					if (count($new_data) > 450){
+						$this->updateGoogleSheet($new_data);
+						sleep(100);
+						$new_data = [];
+					}
+
+				}else{
+					$data = fgetcsv($h, 1000, ",");
+				}
+			}
+
+			$this->updateGoogleSheet($new_data);
+		}
+	}
+
+	private function checkValidRow ($data){
+		if (count($data) != 1){
+			if(!array_filter($data)) {
+				return false;
+			}else{
+				if ($data[0]=="First Name" && $data[2] == "Email"){
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
 	private function updateGoogleSheet( $timeslots ) {
+
+
 		global $google_spreadsheet_id;
 		global $google_spreadsheet_range;
 		global $gogole_json_auth_file_path;
@@ -79,15 +155,16 @@ class LibCalHarvester {
 
 		foreach ($timeslots as $timeslot){
 			$data = [];
-			$data[] = $timeslot->booking_label;
-			$data[] = date('m/d/Y H:i', strtotime($timeslot->booking_start));
-			$data[] = date('m/d/Y', strtotime($timeslot->booking_start));
+			$data[] = $timeslot->booking_label; //booking nickname
+			$data[] = date('m/d/Y H:i', strtotime($timeslot->booking_start)); //date and time
+			$data[] = date('m/d/Y', strtotime($timeslot->booking_start)); //date
 			$data[] = date('h:i A', strtotime($timeslot->booking_start));  //start time
-			$data[] = $timeslot->booking_created;
+			$data[] = (strtotime($timeslot->booking_end)-strtotime($timeslot->booking_start))/60;  //duration (minutes)
+			$data[] = 1;  //countId (minutes)
+			$data[] = $timeslot->booking_created; //booking created
 			$data[] = $timeslot->room_name; //room
 			$values[] = $data;
 		}
-
 
 		$body = new Google_Service_Sheets_ValueRange([
 			'values' => $values
@@ -99,6 +176,9 @@ class LibCalHarvester {
 				$body, $params);
 		}catch (Exception $e){
 			//Todo handle error
+
+			var_dump($e);
+			die();
 		}
 
 
