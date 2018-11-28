@@ -11,10 +11,27 @@ require __DIR__ . '/vendor/autoload.php';
 class LibCalHarvester {
 
 	private $access_token;
+	private $google_client;
+	private $google_spreadsheet_service;
+	private $google_spreadsheet_id;
+	private $google_spreadsheet_range;
 
 	public function __construct() {
 
 		$this->access_token = $this->getAccessToken();
+
+		global $google_spreadsheet_id;
+		global $gogole_json_auth_file_path;
+		$client = new \Google_Client();
+		$client->setApplicationName( 'LibCalIngester' );
+		$client->setScopes( [ \Google_Service_Sheets::SPREADSHEETS ] );
+		$client->setAccessType( 'offline' );
+
+		$client->setAuthConfig( $gogole_json_auth_file_path);
+		$this->google_spreadsheet_service = new Google_Service_Sheets( $client );
+		$this->google_client = $client;
+		$this->google_spreadsheet_id = $google_spreadsheet_id;
+		$this->google_spreadsheet_range = 'Sheet1';
 	}
 
 	private function getAccessToken() {
@@ -61,63 +78,78 @@ class LibCalHarvester {
 		}
 	}
 
+	private function getFiles(){
+		global $csv_files_directory_name;
+		$directory = $csv_files_directory_name;
+		$scanned_directory = array_diff(scandir($directory), array('..', '.', '.git_keep'));
+
+		return $scanned_directory;
+	}
+
 	public function ingest() {
 		if ( $this->validAccessToken() ) {
-			$h = fopen("lc_rooms_20181126051044.csv", "r");
+			$files = $this->getFiles();
 
-			$data = fgetcsv($h, 1000, ",");
+			foreach ($files as $file){
+				global $csv_files_directory_name;
+				$file_name = $csv_files_directory_name . "/" . $file;
+				$h = fopen($file_name, "r");
 
-			$new_data = [];
+				$data = fgetcsv($h, 1000, ",");
 
-			while (($data = fgetcsv($h, 1000, ",")) !== FALSE)
-			{
-				if ($this->checkValidRow($data)){
-					$row = new stdClass();
-					$row->booking_label = $data[4];
+				$new_data = [];
 
-					$libCaldateStr = $data[5];
-					$libCaldateStr = explode(",", $libCaldateStr);
-					$tempdateStr = $libCaldateStr[1] . ", " . $libCaldateStr[2];
-					$libCaldateStr = trim($tempdateStr);
+				while (($data = fgetcsv($h, 1000, ",")) !== FALSE)
+				{
+					if ($this->checkValidRow($data)){
+						$row = new stdClass();
+						$row->booking_label = $data[4];
 
-					$timeStr = $data[6];
+						$libCaldateStr = $data[5];
+						$libCaldateStr = explode(",", $libCaldateStr);
+						$tempdateStr = $libCaldateStr[1] . ", " . $libCaldateStr[2];
+						$libCaldateStr = trim($tempdateStr);
 
-					$timeStr = explode(':', $timeStr);
+						$timeStr = $data[6];
 
-					$hours = (int) $timeStr[0];
-					$minutes = (int) $timeStr[1];
+						$timeStr = explode(':', $timeStr);
 
-					$dateTime = new DateTime();
-					$dateTime = $dateTime->createFromFormat('M d, Y', $libCaldateStr);
+						$hours = (int) $timeStr[0];
+						$minutes = (int) $timeStr[1];
 
-					$dateTime = $dateTime->setTime($hours, $minutes);
+						$dateTime = new DateTime();
+						$dateTime = $dateTime->createFromFormat('M d, Y', $libCaldateStr);
 
-					$timeStamp = $dateTime->getTimestamp();
+						$dateTime = $dateTime->setTime($hours, $minutes);
 
-					$row->booking_start = date('m/d/Y H:i', $timeStamp);
-					$row->booking_end = date('m/d/Y H:i', $timeStamp+$data[7]*60);
+						$timeStamp = $dateTime->getTimestamp();
 
-					$dateStr = $data[8];
-					$dateStr = explode(' ', $dateStr);
-					$dateStr = $dateStr[1] . " " . $dateStr[2] . " " . $dateStr[3];
-					$dateTime = \DateTime::createFromFormat('M d, Y', $dateStr);
-					$row->booking_created = $dateTime->format('Y-m-d H:i:s');;
-					$row->room_name = $data[11];
+						$row->booking_start = date('m/d/Y H:i', $timeStamp);
+						$row->booking_end = date('m/d/Y H:i', $timeStamp+$data[7]*60);
 
-					$new_data[] = $row;
+						$dateStr = $data[8];
+						$dateStr = explode(' ', $dateStr);
+						$dateStr = $dateStr[1] . " " . $dateStr[2] . " " . $dateStr[3];
+						$dateTime = \DateTime::createFromFormat('M d, Y', $dateStr);
+						$row->booking_created = $dateTime->format('Y-m-d H:i:s');;
+						$row->room_name = $data[11];
 
-					if (count($new_data) > 450){
-						$this->updateGoogleSheet($new_data);
-						sleep(100);
-						$new_data = [];
+						$new_data[] = $row;
+
+						if (count($new_data) > 450){
+							$this->updateGoogleSheet($new_data);
+							sleep(100);
+							$new_data = [];
+						}
+
+					}else{
+						$data = fgetcsv($h, 1000, ",");
 					}
-
-				}else{
-					$data = fgetcsv($h, 1000, ",");
 				}
+				$this->updateGoogleSheet($new_data);
 			}
 
-			$this->updateGoogleSheet($new_data);
+
 		}
 	}
 
@@ -136,21 +168,6 @@ class LibCalHarvester {
 	}
 
 	private function updateGoogleSheet( $timeslots ) {
-
-
-		global $google_spreadsheet_id;
-		global $google_spreadsheet_range;
-		global $gogole_json_auth_file_path;
-		$client = new \Google_Client();
-		$client->setApplicationName( 'My PHP App' );
-		$client->setScopes( [ \Google_Service_Sheets::SPREADSHEETS ] );
-		$client->setAccessType( 'offline' );
-
-		$client->setAuthConfig( $gogole_json_auth_file_path);
-		$service = new Google_Service_Sheets( $client );
-		$spreadsheetId = $google_spreadsheet_id;
-		$range = $google_spreadsheet_range;
-
 		$values = [];
 
 		foreach ($timeslots as $timeslot){
@@ -172,7 +189,7 @@ class LibCalHarvester {
 		$params = ["valueInputOption" => "USER_ENTERED"];
 
 		try{
-			$service->spreadsheets_values->append($spreadsheetId, $range,
+			$this->google_spreadsheet_service->spreadsheets_values->append($this->google_spreadsheet_id, $this->google_spreadsheet_range,
 				$body, $params);
 		}catch (Exception $e){
 			//Todo handle error
