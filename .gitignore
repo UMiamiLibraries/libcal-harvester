@@ -10,3 +10,5 @@ google_json_auth/
 *.csv
 
 *.csv#
+
+logs\.txt

@@ -9,8 +9,8 @@
 include_once getcwd() . '/config.php';
 include_once getcwd() . '/LibCalHarvester.php';
 
-$harvester = new LibCalHarvester();
-$harvester->ingest();
+//$harvester = new LibCalHarvester();
+//$harvester->ingest();
 
 foreach ($argv as $arg){
 	$arg = escapeshellcmd($arg);
@@ -23,6 +23,10 @@ foreach ($argv as $arg){
 		case "harvest":
 			$harvester = new LibCalHarvester();
 			$harvester->harvest();
+			break;
+		case "remove_all_from_google_drive":
+			$harvester = new LibCalHarvester();
+			$harvester->remove_all_from_google_drive();
 			break;
 	}
 }

@@ -5,6 +5,9 @@ Instructions:
 2. Enter your libcal api and Google settings
 3. Run libcal-harvester.php
 
+ * Enable Google Sheets API and Google Drive API
+ *
+ *
 Happy harvesting!!!
  *
  */
