@@ -207,12 +207,12 @@ class LibCalHarvester {
 	}
 
 	private function getGoogleDriveFileId() {
-
+		global $google_drive_folder_id;
 		$file_ids  = [];
 		$pageToken = null;
 		do {
 			$response = $this->google_drive_service->files->listFiles( array(
-				'q'         => "mimeType='application/vnd.google-apps.spreadsheet'",
+				'q'         => "'".$google_drive_folder_id."' in parents and mimeType='application/vnd.google-apps.spreadsheet'",
 				'spaces'    => 'drive',
 				'pageToken' => $pageToken,
 				'fields'    => 'nextPageToken, files(id, name)',
