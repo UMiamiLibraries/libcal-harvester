@@ -5,10 +5,8 @@ config.php
 
 vendor/
 
-google_json_auth/
-
 *.csv
 
-*.csv#
-
 logs\.txt
+
+google_json_auth/auth\.json
