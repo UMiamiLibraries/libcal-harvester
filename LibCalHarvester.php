@@ -127,48 +127,47 @@ class LibCalHarvester {
 					$new_data  = [];
 					while ( ( $data = fgetcsv( $h, 1000, "," ) ) !== false ) {
 						if ( $this->checkValidRow( $data ) ) {
-							if ($data[7] === "Approved"){
-								$row                = new stdClass();
-								$row->booking_label = $data[4];
+							$row                = new stdClass();
+							$row->booking_label = $data[4];
 
-								$libCaldateStr = $data[5];
-								$libCaldateStr = explode( ",", $libCaldateStr );
-								$tempdateStr   = $libCaldateStr[1] . ", " . $libCaldateStr[2];
-								$libCaldateStr = trim( $tempdateStr );
+							$libCaldateStr = $data[5];
+							$libCaldateStr = explode( ",", $libCaldateStr );
+							$tempdateStr   = $libCaldateStr[1] . ", " . $libCaldateStr[2];
+							$libCaldateStr = trim( $tempdateStr );
 
-								$timeStr = $data[6];
-								$timeStr = explode( ':', $timeStr );
-								$hours   = (int) $timeStr[0];
-								$minutes = (int) $timeStr[1];
+							$timeStr = $data[6];
+							$timeStr = explode( ':', $timeStr );
+							$hours   = (int) $timeStr[0];
+							$minutes = (int) $timeStr[1];
 
-								$dateTime = new DateTime();
-								$dateTime = $dateTime->createFromFormat( 'M d, Y', $libCaldateStr );
+							$dateTime = new DateTime();
+							$dateTime = $dateTime->createFromFormat( 'M d, Y', $libCaldateStr );
 
-								$dateTime = $dateTime->setTime( $hours, $minutes );
+							$dateTime = $dateTime->setTime( $hours, $minutes );
 
-								$timeStamp = $dateTime->getTimestamp();
+							$timeStamp = $dateTime->getTimestamp();
 
-								$row->booking_start = date( 'm/d/Y H:i', $timeStamp );
-								$row->booking_end   = date( 'm/d/Y H:i', $timeStamp + $data[7] * 60 );
+							$row->booking_start = date( 'm/d/Y H:i', $timeStamp );
+							$row->booking_end   = date( 'm/d/Y H:i', $timeStamp + $data[7] * 60 );
 
-								$dateStr              = $data[8];
-								$dateStr              = explode( ' ', $dateStr );
-								$dateStr              = $dateStr[1] . " " . $dateStr[2] . " " . $dateStr[3];
-								$dateTime             = \DateTime::createFromFormat( 'M d, Y', $dateStr );
-								$row->booking_created = $dateTime->format( 'Y-m-d H:i:s' );;
-								$row->room_name = $data[11];
+							$dateStr              = $data[8];
+							$dateStr              = explode( ' ', $dateStr );
+							$dateStr              = $dateStr[1] . " " . $dateStr[2] . " " . $dateStr[3];
+							$dateTime             = \DateTime::createFromFormat( 'M d, Y', $dateStr );
+							$row->booking_created = $dateTime->format( 'Y-m-d H:i:s' );;
+							$row->room_name = $data[11];
 
-								$new_data[] = $row;
+							$new_data[] = $row;
 
-								if ( count( $new_data ) > 450 ) {
-									$this->messageMe( 'Preparing to update Google Sheet' );
-									$this->updateGoogleSheet( $new_data );
-									$this->messageMe( 'Google Sheet Updated' );
-									$this->writeLogs("450 rows processed in file " . $file . " Going to sleep!");
-									sleep( 100 );
-									$new_data = [];
-								}
+							if ( count( $new_data ) > 450 ) {
+								$this->messageMe( 'Preparing to update Google Sheet' );
+								$this->updateGoogleSheet( $new_data );
+								$this->messageMe( 'Google Sheet Updated' );
+								$this->writeLogs("450 rows processed in file " . $file . " Going to sleep!");
+								sleep( 100 );
+								$new_data = [];
 							}
+
 						} else {
 							$data = fgetcsv( $h, 1000, "," );
 						}
