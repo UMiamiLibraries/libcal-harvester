@@ -10,3 +10,5 @@ vendor/
 logs\.txt
 
 google_json_auth/auth\.json
+
+libcal_csv_files/

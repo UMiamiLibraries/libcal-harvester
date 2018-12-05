@@ -127,47 +127,48 @@ class LibCalHarvester {
 					$new_data  = [];
 					while ( ( $data = fgetcsv( $h, 1000, "," ) ) !== false ) {
 						if ( $this->checkValidRow( $data ) ) {
-							$row                = new stdClass();
-							$row->booking_label = $data[4];
+							if ($data[7] === "Approved"){
+								$row                = new stdClass();
+								$row->booking_label = $data[4];
 
-							$libCaldateStr = $data[5];
-							$libCaldateStr = explode( ",", $libCaldateStr );
-							$tempdateStr   = $libCaldateStr[1] . ", " . $libCaldateStr[2];
-							$libCaldateStr = trim( $tempdateStr );
+								$libCaldateStr = $data[5];
+								$libCaldateStr = explode( ",", $libCaldateStr );
+								$tempdateStr   = $libCaldateStr[1] . ", " . $libCaldateStr[2];
+								$libCaldateStr = trim( $tempdateStr );
 
-							$timeStr = $data[6];
-							$timeStr = explode( ':', $timeStr );
-							$hours   = (int) $timeStr[0];
-							$minutes = (int) $timeStr[1];
+								$timeStr = $data[6];
+								$timeStr = explode( ':', $timeStr );
+								$hours   = (int) $timeStr[0];
+								$minutes = (int) $timeStr[1];
 
-							$dateTime = new DateTime();
-							$dateTime = $dateTime->createFromFormat( 'M d, Y', $libCaldateStr );
+								$dateTime = new DateTime();
+								$dateTime = $dateTime->createFromFormat( 'M d, Y', $libCaldateStr );
 
-							$dateTime = $dateTime->setTime( $hours, $minutes );
+								$dateTime = $dateTime->setTime( $hours, $minutes );
 
-							$timeStamp = $dateTime->getTimestamp();
+								$timeStamp = $dateTime->getTimestamp();
 
-							$row->booking_start = date( 'm/d/Y H:i', $timeStamp );
-							$row->booking_end   = date( 'm/d/Y H:i', $timeStamp + $data[7] * 60 );
+								$row->booking_start = date( 'm/d/Y H:i', $timeStamp );
+								$row->booking_end   = date( 'm/d/Y H:i', $timeStamp + $data[7] * 60 );
 
-							$dateStr              = $data[8];
-							$dateStr              = explode( ' ', $dateStr );
-							$dateStr              = $dateStr[1] . " " . $dateStr[2] . " " . $dateStr[3];
-							$dateTime             = \DateTime::createFromFormat( 'M d, Y', $dateStr );
-							$row->booking_created = $dateTime->format( 'Y-m-d H:i:s' );;
-							$row->room_name = $data[11];
+								$dateStr              = $data[8];
+								$dateStr              = explode( ' ', $dateStr );
+								$dateStr              = $dateStr[1] . " " . $dateStr[2] . " " . $dateStr[3];
+								$dateTime             = \DateTime::createFromFormat( 'M d, Y', $dateStr );
+								$row->booking_created = $dateTime->format( 'Y-m-d H:i:s' );;
+								$row->room_name = $data[11];
 
-							$new_data[] = $row;
+								$new_data[] = $row;
 
-							if ( count( $new_data ) > 450 ) {
-								$this->messageMe( 'Preparing to update Google Sheet' );
-								$this->updateGoogleSheet( $new_data );
-								$this->messageMe( 'Google Sheet Updated' );
-								$this->writeLogs("450 rows processed in file " . $file . " Going to sleep!");
-								sleep( 100 );
-								$new_data = [];
+								if ( count( $new_data ) > 450 ) {
+									$this->messageMe( 'Preparing to update Google Sheet' );
+									$this->updateGoogleSheet( $new_data );
+									$this->messageMe( 'Google Sheet Updated' );
+									$this->writeLogs("450 rows processed in file " . $file . " Going to sleep!");
+									sleep( 100 );
+									$new_data = [];
+								}
 							}
-
 						} else {
 							$data = fgetcsv( $h, 1000, "," );
 						}
@@ -326,14 +327,23 @@ class LibCalHarvester {
 		}
 
 		foreach ( $timeslots as $timeslot ) {
+			$booking_start_date_object = new DateTime($timeslot->booking_start);
+			$booking_start_with_offset =  strtotime($timeslot->booking_start) + $booking_start_date_object->getOffset();
+
+			$booking_end_date_object = new DateTime($timeslot->booking_end);
+			$booking_end_with_offset =  strtotime($timeslot->booking_end) + $booking_end_date_object->getOffset();
+
+			$booking_created_date_object = new DateTime($timeslot->booking_created);
+			$booking_created_with_offset =  strtotime($timeslot->booking_created) + $booking_created_date_object->getOffset();
+
 			$data     = [];
 			$data[]   = $timeslot->booking_label; //booking nickname
-			$data[]   = date( 'm/d/Y H:i', strtotime( $timeslot->booking_start ) ); //date and time
-			$data[]   = date( 'm/d/Y', strtotime( $timeslot->booking_start ) ); //date
-			$data[]   = date( 'h:i A', strtotime( $timeslot->booking_start ) );  //start time
-			$data[]   = ( strtotime( $timeslot->booking_end ) - strtotime( $timeslot->booking_start ) ) / 60;  //duration (minutes)
+			$data[]   = date( 'm/d/Y H:i', $booking_start_with_offset ); //date and time
+			$data[]   = date( 'm/d/Y', $booking_start_with_offset ); //date
+			$data[]   = date( 'h:i A', $booking_start_with_offset);  //start time
+			$data[]   = ( $booking_end_with_offset - $booking_start_with_offset ) / 60;  //duration (minutes)
 			$data[]   = 1;  //countId (minutes)
-			$data[]   = $timeslot->booking_created; //booking created
+			$data[]   = date( 'Y-m-d H:i:s', $booking_created_with_offset); //booking created
 			$data[]   = $timeslot->room_name; //room
 			$values[] = $data;
 		}
